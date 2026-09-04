@@ -260,6 +260,18 @@ describe("reset credit expiry warnings", () => {
       description:
         "Your banked reset credit on Laptop expires in 1d 0h. Open Usage → Limits to use it before then.",
     });
+    const warning = warnings[0]!;
+    expect(
+      resetCreditExpiryNotificationKey([
+        { ...warning, key: "a" },
+        { ...warning, key: "b|c" },
+      ]),
+    ).not.toBe(
+      resetCreditExpiryNotificationKey([
+        { ...warning, key: "a|b" },
+        { ...warning, key: "c" },
+      ]),
+    );
   });
 
   it("ignores disabled, unavailable, and unreported providers", () => {

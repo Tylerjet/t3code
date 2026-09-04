@@ -155,12 +155,7 @@ export function resetCreditExpiryRemainingMs(
 export function resetCreditExpiryNotificationKey(
   warnings: readonly ResetCreditExpiryWarning[],
 ): string | null {
-  return warnings.length > 0
-    ? warnings
-        .map((warning) => warning.key)
-        .sort()
-        .join("|")
-    : null;
+  return warnings.length > 0 ? JSON.stringify(warnings.map((warning) => warning.key).sort()) : null;
 }
 
 /** Shared web/mobile wording for the reminder shown before a banked credit expires. */

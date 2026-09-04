@@ -1,4 +1,8 @@
-import { useNavigation, type StaticScreenProps } from "@react-navigation/native";
+import {
+  type NavigationProp,
+  useNavigation,
+  type StaticScreenProps,
+} from "@react-navigation/native";
 import type { DailyTotals, MergedUsage } from "@t3tools/shared/usageMerge";
 import {
   enumerateDays,
@@ -51,6 +55,10 @@ const CHART_HEIGHT = 180;
 type UsageRouteParams = {
   readonly section?: string | readonly string[];
 };
+type UsageRouteNavigation = NavigationProp<
+  { readonly SettingsUsage: UsageRouteParams | undefined },
+  "SettingsUsage"
+>;
 
 /**
  * Two tabs over one screen. Usage is the transcript-derived spend for a
@@ -58,13 +66,12 @@ type UsageRouteParams = {
  * pull to refresh, each refreshing its own data.
  */
 export function UsageRouteScreen({ route }: StaticScreenProps<UsageRouteParams | undefined>) {
-  const navigation = useNavigation();
+  const navigation = useNavigation<UsageRouteNavigation>();
   const insets = useSafeAreaInsets();
   const routeSection = Array.isArray(route.params?.section)
     ? route.params.section[0]
     : route.params?.section;
-  const requestedTab: UsageTab = routeSection === "limits" ? "limits" : "usage";
-  const [tab, setTab] = useState<UsageTab>(requestedTab);
+  const tab: UsageTab = routeSection === "limits" ? "limits" : "usage";
   const [windowSelection, setWindowSelection] = useState(() => ({
     days: 30,
     window: makeWindow(30),
@@ -109,7 +116,7 @@ export function UsageRouteScreen({ route }: StaticScreenProps<UsageRouteParams |
   const scrollRef = useRef<ScrollView>(null);
   const selectTab = (next: UsageTab) => {
     if (next === tab) return;
-    setTab(next);
+    navigation.setParams({ section: next === "limits" ? "limits" : undefined });
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   };
   const selectWindow = (days: number) => {
