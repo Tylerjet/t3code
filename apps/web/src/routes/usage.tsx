@@ -21,9 +21,5 @@ function UsageRoute() {
       replace: true,
     });
   };
-  return metric === undefined ? (
-    <UsagePage key="cost" onMetricChange={onMetricChange} />
-  ) : (
-    <UsagePage key={metric} initialMetric={metric} onMetricChange={onMetricChange} />
-  );
+  return <UsagePage metric={metric ?? "cost"} onMetricChange={onMetricChange} />;
 }
