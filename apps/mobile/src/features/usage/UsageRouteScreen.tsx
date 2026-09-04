@@ -38,11 +38,15 @@ type UsageRouteParams = {
   readonly section?: string | readonly string[];
 };
 
+const LIMITS_FOCUS_LAYOUT_SETTLE_MS = 100;
+
 export function UsageRouteScreen({ route }: StaticScreenProps<UsageRouteParams | undefined>) {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
+  const focusedRouteParamsRef = useRef<UsageRouteParams | undefined>(undefined);
   const [limitsOffset, setLimitsOffset] = useState<number | null>(null);
+  const [contentHeight, setContentHeight] = useState(0);
   const [windowSelection, setWindowSelection] = useState(() => ({
     days: 30,
     window: makeWindow(30),
@@ -56,14 +60,22 @@ export function UsageRouteScreen({ route }: StaticScreenProps<UsageRouteParams |
     const routeSection = Array.isArray(route.params?.section)
       ? route.params.section[0]
       : route.params?.section;
-    if (routeSection !== "limits" || limitsOffset === null) {
+    if (
+      routeSection !== "limits" ||
+      limitsOffset === null ||
+      contentHeight === 0 ||
+      focusedRouteParamsRef.current === route.params
+    ) {
       return;
     }
-    const frame = requestAnimationFrame(() => {
-      scrollViewRef.current?.scrollTo({ y: limitsOffset, animated: false });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [limitsOffset, route.params]);
+    const timer = setTimeout(() => {
+      const scrollView = scrollViewRef.current;
+      if (scrollView === null) return;
+      scrollView.scrollTo({ y: limitsOffset, animated: false });
+      focusedRouteParamsRef.current = route.params;
+    }, LIMITS_FOCUS_LAYOUT_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [contentHeight, limitsOffset, route.params]);
 
   const days = useMemo(
     () => enumerateDays(window.sinceDay, window.untilDay),
@@ -128,6 +140,7 @@ export function UsageRouteScreen({ route }: StaticScreenProps<UsageRouteParams |
         className="flex-1"
         contentContainerClassName="gap-6 px-5 pt-4"
         contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 18) + 18 }}
+        onContentSizeChange={(_width, height) => setContentHeight(height)}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshWindow} />}
       >
         <SegmentedControl
