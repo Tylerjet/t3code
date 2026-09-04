@@ -18,6 +18,12 @@ provider health-check interval and update live while a turn runs. API-key accoun
 subscription windows and say so; that includes a Claude Code that reaches Anthropic through a proxy
 via `ANTHROPIC_AUTH_TOKEN`, since the CLI then treats itself as an API-key client.
 
+When Codex reports a banked reset credit, Limits shows its count, soonest expiry, and a confirmed
+**Use a reset credit** action. During the final seven days before that expiry, T3 Code highlights
+the countdown and shows an in-app reminder once per expiring credit set per app launch. The
+reminder only opens Limits; it never redeems a credit. Redemption still requires the separate
+confirmation.
+
 If you pool accounts behind a CLIProxyAPI hub, open **Settings → Providers → Usage providers**
 and choose **Add hub**. Select the device that should connect to the hub; its accounts appear on
 the Limits view. Remove hubs from the same settings section. Each limits row shows its provider
