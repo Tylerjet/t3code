@@ -42,11 +42,7 @@ export function UsageRouteScreen({ route }: StaticScreenProps<UsageRouteParams |
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
-  const focusedRouteParamsRef = useRef<UsageRouteParams | undefined>(undefined);
   const [limitsOffset, setLimitsOffset] = useState<number | null>(null);
-  const routeSection = Array.isArray(route.params?.section)
-    ? route.params.section[0]
-    : route.params?.section;
   const [windowSelection, setWindowSelection] = useState(() => ({
     days: 30,
     window: makeWindow(30),
@@ -57,19 +53,17 @@ export function UsageRouteScreen({ route }: StaticScreenProps<UsageRouteParams |
   const { merged, environments, isPending, isPartial, refresh } = useUsage(window);
 
   useEffect(() => {
-    if (
-      routeSection !== "limits" ||
-      limitsOffset === null ||
-      focusedRouteParamsRef.current === route.params
-    ) {
+    const routeSection = Array.isArray(route.params?.section)
+      ? route.params.section[0]
+      : route.params?.section;
+    if (routeSection !== "limits" || limitsOffset === null) {
       return;
     }
-    focusedRouteParamsRef.current = route.params;
     const frame = requestAnimationFrame(() => {
       scrollViewRef.current?.scrollTo({ y: limitsOffset, animated: false });
     });
     return () => cancelAnimationFrame(frame);
-  }, [limitsOffset, route.params, routeSection]);
+  }, [limitsOffset, route.params]);
 
   const days = useMemo(
     () => enumerateDays(window.sinceDay, window.untilDay),
