@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
+import { environmentPresentationSettlingKey } from "@t3tools/client-runtime/state/presentation";
 import {
   collectResetCreditExpiryWarnings,
   resetCreditExpiryNotificationKey,
@@ -7,7 +8,7 @@ import {
   resetCreditExpiryWarningView,
 } from "@t3tools/shared/usageLimits";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 
 import { useNowMinute } from "../hooks/useNowMinute";
 import { environmentPresentations } from "../state/presentation";
@@ -17,48 +18,25 @@ import { stackedThreadToast, toastManager } from "./ui/toast";
 const seenNotificationKeys = new Set<string>();
 
 type ExpiryToastId = ReturnType<typeof toastManager.add>;
+type ExpiryWarnings = ReturnType<typeof collectResetCreditExpiryWarnings>;
+type ActiveExpiryToast = { readonly key: string; readonly toastId: ExpiryToastId };
 
 /** One launch-time reminder for every distinct set of credits nearing expiry. */
 export function ResetCreditExpiryNotification() {
-  const navigate = useNavigate();
   const presentations = useAtomValue(environmentPresentations.presentationsAtom);
   const nowMinute = useNowMinute();
-  const activeToastRef = useRef<{ readonly key: string; readonly toastId: ExpiryToastId } | null>(
-    null,
-  );
+  const activeToastRef = useRef<ActiveExpiryToast | null>(null);
   const unmountTimerRef = useRef<number | null>(null);
   const warnings = useMemo(
     () => collectResetCreditExpiryWarnings(presentations, Date.parse(`${nowMinute}:00.000Z`)),
     [nowMinute, presentations],
   );
   const notificationKey = resetCreditExpiryNotificationKey(warnings);
-  const isAnyEnvironmentSettling = useMemo(
-    () =>
-      [...presentations.values()].some(
-        ({ connection, serverConfig }) =>
-          connection.phase === "connecting" ||
-          connection.phase === "reconnecting" ||
-          (connection.phase === "connected" && serverConfig === null),
-      ),
+  const settlingKey = useMemo(
+    () => environmentPresentationSettlingKey(presentations),
     [presentations],
   );
-  const [settleGraceElapsed, setSettleGraceElapsed] = useState(false);
-
-  useEffect(() => {
-    const resetTimer = window.setTimeout(() => setSettleGraceElapsed(false), 0);
-    if (!isAnyEnvironmentSettling) return () => window.clearTimeout(resetTimer);
-
-    const graceTimer = window.setTimeout(
-      () => setSettleGraceElapsed(true),
-      RESET_CREDIT_REMINDER_SETTLE_GRACE_MS,
-    );
-    return () => {
-      window.clearTimeout(resetTimer);
-      window.clearTimeout(graceTimer);
-    };
-  }, [isAnyEnvironmentSettling]);
-  const isGated = isAnyEnvironmentSettling && !settleGraceElapsed;
-
+  const isAnyEnvironmentSettling = settlingKey !== null;
   useEffect(() => {
     if (unmountTimerRef.current !== null) {
       window.clearTimeout(unmountTimerRef.current);
@@ -73,10 +51,45 @@ export function ResetCreditExpiryNotification() {
     };
   }, []);
 
+  return (
+    <ResetCreditExpiryNotificationCycle
+      key={settlingKey === null ? "settled" : `settling:${settlingKey}`}
+      activeToastRef={activeToastRef}
+      isAnyEnvironmentSettling={isAnyEnvironmentSettling}
+      notificationKey={notificationKey}
+      warnings={warnings}
+    />
+  );
+}
+
+function ResetCreditExpiryNotificationCycle({
+  activeToastRef,
+  isAnyEnvironmentSettling,
+  notificationKey,
+  warnings,
+}: {
+  readonly activeToastRef: RefObject<ActiveExpiryToast | null>;
+  readonly isAnyEnvironmentSettling: boolean;
+  readonly notificationKey: string | null;
+  readonly warnings: ExpiryWarnings;
+}) {
+  const navigate = useNavigate();
+  const [settleGraceElapsed, setSettleGraceElapsed] = useState(false);
+
+  useEffect(() => {
+    if (!isAnyEnvironmentSettling) return;
+    const timer = window.setTimeout(
+      () => setSettleGraceElapsed(true),
+      RESET_CREDIT_REMINDER_SETTLE_GRACE_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [isAnyEnvironmentSettling]);
+  const isGated = isAnyEnvironmentSettling && !settleGraceElapsed;
+
   useEffect(() => {
     const active = activeToastRef.current;
     if (active?.key === notificationKey) return;
-    if (active && !isGated && !isAnyEnvironmentSettling) {
+    if (active && !isGated) {
       activeToastRef.current = null;
       toastManager.close(active.toastId);
     }
@@ -116,7 +129,7 @@ export function ResetCreditExpiryNotification() {
       activeToastRef.current = { key: notificationKey, toastId };
     }, RESET_CREDIT_REMINDER_STABILIZE_MS);
     return () => window.clearTimeout(timer);
-  }, [isAnyEnvironmentSettling, isGated, navigate, notificationKey, warnings]);
+  }, [activeToastRef, isGated, navigate, notificationKey, warnings]);
 
   return null;
 }

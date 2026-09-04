@@ -21,6 +21,23 @@ function mapsEqual<K, V>(left: ReadonlyMap<K, V>, right: ReadonlyMap<K, V>): boo
   return true;
 }
 
+/** Stable identity of environments still connecting or waiting for their first config snapshot. */
+export function environmentPresentationSettlingKey(
+  presentations: ReadonlyMap<EnvironmentId, EnvironmentPresentation>,
+): string | null {
+  const environmentIds: EnvironmentId[] = [];
+  for (const [environmentId, { connection, serverConfig }] of presentations) {
+    if (
+      connection.phase === "connecting" ||
+      connection.phase === "reconnecting" ||
+      (connection.phase === "connected" && serverConfig === null)
+    ) {
+      environmentIds.push(environmentId);
+    }
+  }
+  return environmentIds.length > 0 ? environmentIds.toSorted().join("|") : null;
+}
+
 export function createEnvironmentPresentationAtoms<E>(input: {
   readonly catalogValueAtom: Atom.Atom<EnvironmentCatalogState>;
   readonly stateAtom: (

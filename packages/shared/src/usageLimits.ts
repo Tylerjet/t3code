@@ -66,20 +66,20 @@ export interface LimitsGroup {
   readonly providers: readonly ServerProvider[];
 }
 
+type LimitsPresentationMap = ReadonlyMap<
+  EnvironmentId,
+  {
+    readonly entry: { readonly target: { readonly label: string } };
+    readonly serverConfig: { readonly providers: readonly ServerProvider[] } | null;
+  }
+>;
+
 /**
  * One group per connected environment with a provider reporting limits.
  * Provider snapshots come from the config stream every client already holds,
  * so opening the view costs no extra request.
  */
-export function collectLimitsGroups(
-  presentations: ReadonlyMap<
-    EnvironmentId,
-    {
-      readonly entry: { readonly target: { readonly label: string } };
-      readonly serverConfig: { readonly providers: readonly ServerProvider[] } | null;
-    }
-  >,
-): readonly LimitsGroup[] {
+export function collectLimitsGroups(presentations: LimitsPresentationMap): readonly LimitsGroup[] {
   const groups: LimitsGroup[] = [];
   for (const [environmentId, presentation] of presentations) {
     const providers = providersWithLimits(presentation.serverConfig?.providers ?? []);
@@ -96,13 +96,7 @@ export function collectLimitsGroups(
  * environments when its email is known.
  */
 export function collectResetCreditExpiryWarnings(
-  presentations: ReadonlyMap<
-    EnvironmentId,
-    {
-      readonly entry: { readonly target: { readonly label: string } };
-      readonly serverConfig: { readonly providers: readonly ServerProvider[] } | null;
-    }
-  >,
+  presentations: LimitsPresentationMap,
   now: number,
   warningWindowMs = RESET_CREDIT_EXPIRY_WARNING_MS,
 ): readonly ResetCreditExpiryWarning[] {

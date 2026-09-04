@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
+import { environmentPresentationSettlingKey } from "@t3tools/client-runtime/state/presentation";
 import {
   collectResetCreditExpiryWarnings,
   resetCreditExpiryNotificationKey,
@@ -14,6 +15,7 @@ import { environmentPresentations } from "../../state/presentation";
 
 const DRIVER_LABEL: Partial<Record<string, string>> = { codex: "Codex", claudeAgent: "Claude" };
 const seenNotificationKeys = new Set<string>();
+type ExpiryWarnings = ReturnType<typeof collectResetCreditExpiryWarnings>;
 
 /** Native counterpart to the web reminder; it never invokes credit redemption. */
 export function ResetCreditExpiryAlert() {
@@ -36,30 +38,40 @@ export function ResetCreditExpiryAlert() {
     [now, presentations],
   );
   const notificationKey = resetCreditExpiryNotificationKey(warnings);
-  const isAnyEnvironmentSettling = useMemo(
-    () =>
-      [...presentations.values()].some(
-        ({ connection, serverConfig }) =>
-          connection.phase === "connecting" ||
-          connection.phase === "reconnecting" ||
-          (connection.phase === "connected" && serverConfig === null),
-      ),
+  const settlingKey = useMemo(
+    () => environmentPresentationSettlingKey(presentations),
     [presentations],
   );
+  const isAnyEnvironmentSettling = settlingKey !== null;
+
+  return (
+    <ResetCreditExpiryAlertCycle
+      key={settlingKey === null ? "settled" : `settling:${settlingKey}`}
+      isAnyEnvironmentSettling={isAnyEnvironmentSettling}
+      notificationKey={notificationKey}
+      warnings={warnings}
+    />
+  );
+}
+
+function ResetCreditExpiryAlertCycle({
+  isAnyEnvironmentSettling,
+  notificationKey,
+  warnings,
+}: {
+  readonly isAnyEnvironmentSettling: boolean;
+  readonly notificationKey: string | null;
+  readonly warnings: ExpiryWarnings;
+}) {
   const [settleGraceElapsed, setSettleGraceElapsed] = useState(false);
 
   useEffect(() => {
-    const resetTimer = setTimeout(() => setSettleGraceElapsed(false), 0);
-    if (!isAnyEnvironmentSettling) return () => clearTimeout(resetTimer);
-
-    const graceTimer = setTimeout(
+    if (!isAnyEnvironmentSettling) return;
+    const timer = setTimeout(
       () => setSettleGraceElapsed(true),
       RESET_CREDIT_REMINDER_SETTLE_GRACE_MS,
     );
-    return () => {
-      clearTimeout(resetTimer);
-      clearTimeout(graceTimer);
-    };
+    return () => clearTimeout(timer);
   }, [isAnyEnvironmentSettling]);
   const isGated = isAnyEnvironmentSettling && !settleGraceElapsed;
 
@@ -74,12 +86,11 @@ export function ResetCreditExpiryAlert() {
         { text: "Later", style: "cancel" },
         {
           text: "View limits",
-          onPress: () => void Linking.openURL(Linking.createURL("/settings/usage")),
+          onPress: () => void Linking.openURL(Linking.createURL("/settings/usage?section=limits")),
         },
       ]);
     }, RESET_CREDIT_REMINDER_STABILIZE_MS);
     return () => clearTimeout(timer);
   }, [isGated, notificationKey, warnings]);
-
   return null;
 }

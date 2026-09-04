@@ -58,22 +58,16 @@ const WINDOW_OPTIONS = [
 ] as const;
 
 export function UsagePage({
-  metric: controlledMetric,
+  metric,
   onMetricChange,
 }: {
-  readonly metric?: UsageMetric;
-  readonly onMetricChange?: (metric: UsageMetric) => void;
-} = {}) {
+  readonly metric: UsageMetric;
+  readonly onMetricChange: (metric: UsageMetric) => void;
+}) {
   const [windowSelection, setWindowSelection] = useState(() => ({
     days: 30,
     window: makeWindow(30),
   }));
-  const [uncontrolledMetric, setUncontrolledMetric] = useState<UsageMetric>("cost");
-  const metric = controlledMetric ?? uncontrolledMetric;
-  const selectMetric = (nextMetric: UsageMetric) => {
-    if (controlledMetric === undefined) setUncontrolledMetric(nextMetric);
-    onMetricChange?.(nextMetric);
-  };
   const showingLimits = metric === "limits";
   const [breakdown, setBreakdown] = useState<"model" | "time">("model");
   const { days: windowDays, window } = windowSelection;
@@ -173,7 +167,7 @@ export function UsagePage({
           onValueChange={(next) => {
             const value = next[0];
             if (isUsageMetric(value)) {
-              selectMetric(value);
+              onMetricChange(value);
             }
           }}
         >
@@ -215,7 +209,7 @@ export function UsagePage({
           value={metric}
           onValueChange={(value) => {
             if (isUsageMetric(value)) {
-              selectMetric(value);
+              onMetricChange(value);
             }
           }}
         >

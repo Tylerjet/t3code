@@ -1,4 +1,4 @@
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, type StaticScreenProps } from "@react-navigation/native";
 import type { DailyTotals, MergedUsage } from "@t3tools/shared/usageMerge";
 import {
   enumerateDays,
@@ -11,7 +11,7 @@ import {
   formatUsd,
   makeWindow,
 } from "@t3tools/shared/usageFormat";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -34,9 +34,19 @@ const WINDOW_OPTIONS = [
 
 const CHART_HEIGHT = 180;
 
-export function UsageRouteScreen() {
+type UsageRouteParams = {
+  readonly section?: string | readonly string[];
+};
+
+export function UsageRouteScreen({ route }: StaticScreenProps<UsageRouteParams | undefined>) {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const scrollViewRef = useRef<ScrollView>(null);
+  const focusedRouteParamsRef = useRef<UsageRouteParams | undefined>(undefined);
+  const [limitsOffset, setLimitsOffset] = useState<number | null>(null);
+  const routeSection = Array.isArray(route.params?.section)
+    ? route.params.section[0]
+    : route.params?.section;
   const [windowSelection, setWindowSelection] = useState(() => ({
     days: 30,
     window: makeWindow(30),
@@ -45,6 +55,21 @@ export function UsageRouteScreen() {
   const { days: windowDays, window } = windowSelection;
   const isPast24Hours = windowDays === 1;
   const { merged, environments, isPending, isPartial, refresh } = useUsage(window);
+
+  useEffect(() => {
+    if (
+      routeSection !== "limits" ||
+      limitsOffset === null ||
+      focusedRouteParamsRef.current === route.params
+    ) {
+      return;
+    }
+    focusedRouteParamsRef.current = route.params;
+    const frame = requestAnimationFrame(() => {
+      scrollViewRef.current?.scrollTo({ y: limitsOffset, animated: false });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [limitsOffset, route.params, routeSection]);
 
   const days = useMemo(
     () => enumerateDays(window.sinceDay, window.untilDay),
@@ -103,6 +128,7 @@ export function UsageRouteScreen() {
         </>
       ) : null}
       <ScrollView
+        ref={scrollViewRef}
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
         className="flex-1"
@@ -140,7 +166,9 @@ export function UsageRouteScreen() {
               timeZone={window.timeZone}
             />
             <ProviderSection merged={merged} metric={metric} />
-            <UsageLimitsSection />
+            <View onLayout={(event) => setLimitsOffset(event.nativeEvent.layout.y)}>
+              <UsageLimitsSection />
+            </View>
             <TotalsSection merged={merged} isPast24Hours={isPast24Hours} />
             <ModelsSection merged={merged} />
           </>
