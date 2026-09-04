@@ -170,7 +170,8 @@ server, opens a local tunnel, checks HTTP readiness, optionally issues a remote 
 returns local HTTP/WS endpoints. Reconnect prefers the current runtime record over the saved SSH
 port and never stops the discovered server. Disconnect closes the tunnel and stops an SSH-launched
 server only if its saved process start time still matches. Old cache entries without a start time
-and servers marked `external` are left running.
+and servers marked `external` are left running. If an unready saved PID has no matching start
+time, reconnect tries a new server. Server startup still enforces state-directory ownership.
 
 The desktop main process owns this because it can spawn SSH, manage prompts, write launch scripts,
 and clean up forwards. The renderer connects through the forwarded URL like any other environment and
