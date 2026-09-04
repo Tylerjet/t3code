@@ -24,19 +24,26 @@ export function ResetCreditExpiryNotification() {
   const activeToastRef = useRef<{ readonly key: string; readonly toastId: ExpiryToastId } | null>(
     null,
   );
+  const unmountTimerRef = useRef<number | null>(null);
   const warnings = useMemo(
     () => collectResetCreditExpiryWarnings(presentations, Date.parse(`${nowMinute}:00.000Z`)),
     [nowMinute, presentations],
   );
   const notificationKey = resetCreditExpiryNotificationKey(warnings);
 
-  useEffect(
-    () => () => {
-      const active = activeToastRef.current;
-      if (active) toastManager.close(active.toastId);
-    },
-    [],
-  );
+  useEffect(() => {
+    if (unmountTimerRef.current !== null) {
+      window.clearTimeout(unmountTimerRef.current);
+      unmountTimerRef.current = null;
+    }
+    return () => {
+      unmountTimerRef.current = window.setTimeout(() => {
+        const active = activeToastRef.current;
+        activeToastRef.current = null;
+        if (active) toastManager.close(active.toastId);
+      }, 0);
+    };
+  }, []);
 
   useEffect(() => {
     const active = activeToastRef.current;
@@ -47,7 +54,6 @@ export function ResetCreditExpiryNotification() {
     }
     if (!notificationKey || seenNotificationKeys.has(notificationKey)) return;
 
-    seenNotificationKeys.add(notificationKey);
     const view = resetCreditExpiryWarningView(warnings, (driver) => getDriverOption(driver)?.label);
     if (view === null) return;
 
@@ -74,6 +80,7 @@ export function ResetCreditExpiryNotification() {
         },
       }),
     );
+    seenNotificationKeys.add(notificationKey);
     activeToastRef.current = { key: notificationKey, toastId };
   }, [navigate, notificationKey, warnings]);
 
