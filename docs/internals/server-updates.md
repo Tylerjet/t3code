@@ -37,7 +37,9 @@ not delete or replace it, including during update rollback. The OS releases its 
 The owner publishes a unique `ownerId` in `server-runtime.json`. Cleanup checks that ID while it
 still holds the lock. The project CLI does not remove discovery records after failed requests.
 A record without `ownerId` comes from an older release. Startup refuses to replace it while its
-PID exists. PID existence never authorizes a stop.
+PID exists, unless a single-PID OS query proves that the process started after the record. This
+recovers legacy records after PID reuse. An unavailable start time keeps the refusal in place.
+PID existence never authorizes a stop.
 
 Service setup checks for an owner before initial installation and after stopping an installed
 unit. It does not stop unmanaged servers. A concurrent server start must still acquire the same
