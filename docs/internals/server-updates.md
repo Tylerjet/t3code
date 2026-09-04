@@ -27,6 +27,25 @@ The state contains one active version and, at most, one update record:
 
 Every write uses same-directory replacement plus file and directory fsync.
 
+## Server ownership
+
+`serverOwnership.ts` resolves the state directory through `realpath` and holds an exclusive
+SQLite transaction in `server-owner.sqlite`. The server acquires this lock before it builds runtime
+dependencies and releases it after their finalizers finish. The file has no application data. Do
+not delete or replace it, including during update rollback. The OS releases its lock after a crash.
+
+The owner publishes a unique `ownerId` in `server-runtime.json`. Cleanup checks that ID while it
+still holds the lock. The project CLI does not remove discovery records after failed requests.
+A record without `ownerId` comes from an older release. Startup refuses to replace it while its
+PID exists. PID existence never authorizes a stop.
+
+Service setup checks for an owner before initial installation and after stopping an installed
+unit. It does not stop unmanaged servers. A concurrent server start must still acquire the same
+lock. The launcher already waits for the previous child to exit before trial startup or rollback,
+so those transitions use the normal ownership acquisition path. Backup and rollback hold the same
+lock while they touch database files. If another server acquires ownership between children, the
+launcher cannot restore an old snapshot over that server.
+
 ## Remote Update
 
 1. The active server installs `t3@<target>` into a unique staging directory.
