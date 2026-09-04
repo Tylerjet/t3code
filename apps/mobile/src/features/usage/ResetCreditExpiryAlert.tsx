@@ -49,11 +49,17 @@ export function ResetCreditExpiryAlert() {
   const [settleGraceElapsed, setSettleGraceElapsed] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(
-      () => setSettleGraceElapsed(isAnyEnvironmentSettling),
-      isAnyEnvironmentSettling ? RESET_CREDIT_REMINDER_SETTLE_GRACE_MS : 0,
+    const resetTimer = setTimeout(() => setSettleGraceElapsed(false), 0);
+    if (!isAnyEnvironmentSettling) return () => clearTimeout(resetTimer);
+
+    const graceTimer = setTimeout(
+      () => setSettleGraceElapsed(true),
+      RESET_CREDIT_REMINDER_SETTLE_GRACE_MS,
     );
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(resetTimer);
+      clearTimeout(graceTimer);
+    };
   }, [isAnyEnvironmentSettling]);
   const isGated = isAnyEnvironmentSettling && !settleGraceElapsed;
 

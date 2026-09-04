@@ -45,11 +45,17 @@ export function ResetCreditExpiryNotification() {
   const [settleGraceElapsed, setSettleGraceElapsed] = useState(false);
 
   useEffect(() => {
-    const timer = window.setTimeout(
-      () => setSettleGraceElapsed(isAnyEnvironmentSettling),
-      isAnyEnvironmentSettling ? RESET_CREDIT_REMINDER_SETTLE_GRACE_MS : 0,
+    const resetTimer = window.setTimeout(() => setSettleGraceElapsed(false), 0);
+    if (!isAnyEnvironmentSettling) return () => window.clearTimeout(resetTimer);
+
+    const graceTimer = window.setTimeout(
+      () => setSettleGraceElapsed(true),
+      RESET_CREDIT_REMINDER_SETTLE_GRACE_MS,
     );
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(resetTimer);
+      window.clearTimeout(graceTimer);
+    };
   }, [isAnyEnvironmentSettling]);
   const isGated = isAnyEnvironmentSettling && !settleGraceElapsed;
 
@@ -70,7 +76,7 @@ export function ResetCreditExpiryNotification() {
   useEffect(() => {
     const active = activeToastRef.current;
     if (active?.key === notificationKey) return;
-    if (active && (!isGated || notificationKey === null)) {
+    if (active && !isGated && !isAnyEnvironmentSettling) {
       activeToastRef.current = null;
       toastManager.close(active.toastId);
     }
@@ -110,7 +116,7 @@ export function ResetCreditExpiryNotification() {
       activeToastRef.current = { key: notificationKey, toastId };
     }, RESET_CREDIT_REMINDER_STABILIZE_MS);
     return () => window.clearTimeout(timer);
-  }, [isGated, navigate, notificationKey, warnings]);
+  }, [isAnyEnvironmentSettling, isGated, navigate, notificationKey, warnings]);
 
   return null;
 }
