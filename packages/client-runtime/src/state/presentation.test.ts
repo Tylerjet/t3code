@@ -20,12 +20,29 @@ describe("environmentPresentationSettlingKey", () => {
     ]);
 
     expect(environmentPresentationSettlingKey(presentations as never)).toBe(
-      "a-connecting|m-awaiting-config|z-reconnecting",
+      '["a-connecting","m-awaiting-config","z-reconnecting"]',
     );
     expect(
       environmentPresentationSettlingKey(
         new Map([[EnvironmentId.make("ready"), presentation("connected", true)]]) as never,
       ),
     ).toBeNull();
+  });
+
+  it("keeps distinct environment sets collision-free when IDs contain delimiters", () => {
+    const left = new Map([
+      [EnvironmentId.make("a"), presentation("connecting", false)],
+      [EnvironmentId.make("b|c"), presentation("connecting", false)],
+    ]);
+    const right = new Map([
+      [EnvironmentId.make("a|b"), presentation("connecting", false)],
+      [EnvironmentId.make("c"), presentation("connecting", false)],
+    ]);
+
+    expect(environmentPresentationSettlingKey(left as never)).toBe('["a","b|c"]');
+    expect(environmentPresentationSettlingKey(right as never)).toBe('["a|b","c"]');
+    expect(environmentPresentationSettlingKey(left as never)).not.toBe(
+      environmentPresentationSettlingKey(right as never),
+    );
   });
 });

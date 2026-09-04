@@ -36,7 +36,7 @@ export function environmentPresentationSettlingKey(
     }
   }
   // Hermes does not provide ES2023 `toSorted`; this local array is safe to sort in place.
-  return environmentIds.length > 0 ? environmentIds.sort().join("|") : null;
+  return environmentIds.length > 0 ? JSON.stringify(environmentIds.sort()) : null;
 }
 
 export function createEnvironmentPresentationAtoms<E>(input: {
