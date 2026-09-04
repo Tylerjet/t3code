@@ -130,7 +130,8 @@ export function collectResetCreditExpiryWarnings(
     }
   }
 
-  return [...warningsByAccount.values()].toSorted(
+  // Sort a copy rather than using ES2023 `toSorted`, which Hermes does not provide.
+  return [...warningsByAccount.values()].sort(
     (left, right) => left.remainingMs - right.remainingMs || left.key.localeCompare(right.key),
   );
 }
@@ -157,7 +158,7 @@ export function resetCreditExpiryNotificationKey(
   return warnings.length > 0
     ? warnings
         .map((warning) => warning.key)
-        .toSorted()
+        .sort()
         .join("|")
     : null;
 }
