@@ -15,7 +15,7 @@ import {
   formatUsd,
   makeWindow,
 } from "@t3tools/shared/usageFormat";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -114,6 +114,10 @@ export function UsageRouteScreen({ route }: StaticScreenProps<UsageRouteParams |
   // One ScrollView serves both tabs, so the offset would otherwise carry over
   // and a short Limits list could open scrolled past its own content.
   const scrollRef = useRef<ScrollView>(null);
+  useEffect(() => {
+    if (routeSection !== "limits") return;
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [routeSection]);
   const selectTab = (next: UsageTab) => {
     if (next === tab) return;
     navigation.setParams({ section: next === "limits" ? "limits" : undefined });
