@@ -2,6 +2,8 @@ import { useAtomValue } from "@effect/atom-react";
 import {
   collectResetCreditExpiryWarnings,
   resetCreditExpiryNotificationKey,
+  RESET_CREDIT_REMINDER_SETTLE_GRACE_MS,
+  RESET_CREDIT_REMINDER_STABILIZE_MS,
   resetCreditExpiryWarningView,
 } from "@t3tools/shared/usageLimits";
 import * as Linking from "expo-linking";
@@ -30,20 +32,44 @@ export function ResetCreditExpiryAlert() {
     [now, presentations],
   );
   const notificationKey = resetCreditExpiryNotificationKey(warnings);
+  const isAnyEnvironmentSettling = useMemo(
+    () =>
+      [...presentations.values()].some(
+        ({ connection, serverConfig }) =>
+          connection.phase === "connecting" ||
+          connection.phase === "reconnecting" ||
+          (connection.phase === "connected" && serverConfig === null),
+      ),
+    [presentations],
+  );
+  const [settleGraceElapsed, setSettleGraceElapsed] = useState(false);
 
   useEffect(() => {
-    if (!notificationKey || seenNotificationKeys.has(notificationKey)) return;
-    seenNotificationKeys.add(notificationKey);
-    const view = resetCreditExpiryWarningView(warnings, (driver) => DRIVER_LABEL[driver]);
-    if (view === null) return;
-    Alert.alert(view.title, view.description, [
-      { text: "Later", style: "cancel" },
-      {
-        text: "View limits",
-        onPress: () => void Linking.openURL(Linking.createURL("/settings/usage")),
-      },
-    ]);
-  }, [notificationKey, warnings]);
+    const timer = setTimeout(
+      () => setSettleGraceElapsed(isAnyEnvironmentSettling),
+      isAnyEnvironmentSettling ? RESET_CREDIT_REMINDER_SETTLE_GRACE_MS : 0,
+    );
+    return () => clearTimeout(timer);
+  }, [isAnyEnvironmentSettling]);
+  const isGated = isAnyEnvironmentSettling && !settleGraceElapsed;
+
+  useEffect(() => {
+    if (!notificationKey || isGated || seenNotificationKeys.has(notificationKey)) return;
+    const timer = setTimeout(() => {
+      if (seenNotificationKeys.has(notificationKey)) return;
+      const view = resetCreditExpiryWarningView(warnings, (driver) => DRIVER_LABEL[driver]);
+      if (view === null) return;
+      seenNotificationKeys.add(notificationKey);
+      Alert.alert(view.title, view.description, [
+        { text: "Later", style: "cancel" },
+        {
+          text: "View limits",
+          onPress: () => void Linking.openURL(Linking.createURL("/settings/usage")),
+        },
+      ]);
+    }, RESET_CREDIT_REMINDER_STABILIZE_MS);
+    return () => clearTimeout(timer);
+  }, [isGated, notificationKey, warnings]);
 
   return null;
 }

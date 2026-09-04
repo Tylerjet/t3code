@@ -39,7 +39,7 @@ import { UsageLimitsSection } from "./UsageLimits";
 import { UsageProviderChart, type UsageChartMetric } from "./UsageProviderChart";
 import { PROVIDER_ORDER, PROVIDER_PRESENTATION, providersWithUsage } from "./usageProviders";
 
-type UsageMetric = UsageChartMetric | "limits";
+export type UsageMetric = UsageChartMetric | "limits";
 const METRIC_OPTIONS = [
   { value: "cost", label: "Cost" },
   { value: "tokens", label: "Tokens" },
@@ -57,7 +57,13 @@ const WINDOW_OPTIONS = [
   { days: 90, label: "90 days" },
 ] as const;
 
-export function UsagePage({ initialMetric }: { readonly initialMetric?: "limits" } = {}) {
+export function UsagePage({
+  initialMetric,
+  onMetricChange,
+}: {
+  readonly initialMetric?: "limits";
+  readonly onMetricChange?: (metric: UsageMetric) => void;
+} = {}) {
   const [windowSelection, setWindowSelection] = useState(() => ({
     days: 30,
     window: makeWindow(30),
@@ -161,7 +167,10 @@ export function UsagePage({ initialMetric }: { readonly initialMetric?: "limits"
           value={[metric]}
           onValueChange={(next) => {
             const value = next[0];
-            if (isUsageMetric(value)) setMetric(value);
+            if (isUsageMetric(value)) {
+              setMetric(value);
+              onMetricChange?.(value);
+            }
           }}
         >
           {METRIC_OPTIONS.map((option) => (
@@ -201,7 +210,10 @@ export function UsagePage({ initialMetric }: { readonly initialMetric?: "limits"
         <Select
           value={metric}
           onValueChange={(value) => {
-            if (isUsageMetric(value)) setMetric(value);
+            if (isUsageMetric(value)) {
+              setMetric(value);
+              onMetricChange?.(value);
+            }
           }}
         >
           <SelectTrigger

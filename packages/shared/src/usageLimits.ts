@@ -22,6 +22,10 @@ const DAY = 24 * HOUR;
 
 /** Banked reset credits become urgent enough to call out one week before expiry. */
 export const RESET_CREDIT_EXPIRY_WARNING_MS = 7 * DAY;
+/** Let connected environments finish publishing before aggregating a launch reminder. */
+export const RESET_CREDIT_REMINDER_SETTLE_GRACE_MS = 30_000;
+/** Debounce adjacent presentation updates after the environments have settled. */
+export const RESET_CREDIT_REMINDER_STABILIZE_MS = 1_000;
 
 export interface ResetCreditExpiryWarning {
   readonly key: string;

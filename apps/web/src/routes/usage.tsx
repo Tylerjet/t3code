@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { UsagePage } from "../components/usage/UsagePage";
+import { UsagePage, type UsageMetric } from "../components/usage/UsagePage";
 
 export interface UsageSearch {
   readonly metric?: "limits";
@@ -14,9 +14,16 @@ export const Route = createFileRoute("/usage")({
 
 function UsageRoute() {
   const { metric } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const onMetricChange = (nextMetric: UsageMetric) => {
+    void navigate({
+      search: nextMetric === "limits" ? { metric: "limits" } : {},
+      replace: true,
+    });
+  };
   return metric === "limits" ? (
-    <UsagePage key="limits" initialMetric="limits" />
+    <UsagePage key="limits" initialMetric="limits" onMetricChange={onMetricChange} />
   ) : (
-    <UsagePage key="default" />
+    <UsagePage key="default" onMetricChange={onMetricChange} />
   );
 }

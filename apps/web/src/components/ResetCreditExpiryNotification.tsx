@@ -2,10 +2,12 @@ import { useAtomValue } from "@effect/atom-react";
 import {
   collectResetCreditExpiryWarnings,
   resetCreditExpiryNotificationKey,
+  RESET_CREDIT_REMINDER_SETTLE_GRACE_MS,
+  RESET_CREDIT_REMINDER_STABILIZE_MS,
   resetCreditExpiryWarningView,
 } from "@t3tools/shared/usageLimits";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useNowMinute } from "../hooks/useNowMinute";
 import { environmentPresentations } from "../state/presentation";
@@ -30,6 +32,26 @@ export function ResetCreditExpiryNotification() {
     [nowMinute, presentations],
   );
   const notificationKey = resetCreditExpiryNotificationKey(warnings);
+  const isAnyEnvironmentSettling = useMemo(
+    () =>
+      [...presentations.values()].some(
+        ({ connection, serverConfig }) =>
+          connection.phase === "connecting" ||
+          connection.phase === "reconnecting" ||
+          (connection.phase === "connected" && serverConfig === null),
+      ),
+    [presentations],
+  );
+  const [settleGraceElapsed, setSettleGraceElapsed] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setSettleGraceElapsed(isAnyEnvironmentSettling),
+      isAnyEnvironmentSettling ? RESET_CREDIT_REMINDER_SETTLE_GRACE_MS : 0,
+    );
+    return () => window.clearTimeout(timer);
+  }, [isAnyEnvironmentSettling]);
+  const isGated = isAnyEnvironmentSettling && !settleGraceElapsed;
 
   useEffect(() => {
     if (unmountTimerRef.current !== null) {
@@ -48,41 +70,47 @@ export function ResetCreditExpiryNotification() {
   useEffect(() => {
     const active = activeToastRef.current;
     if (active?.key === notificationKey) return;
-    if (active) {
+    if (active && (!isGated || notificationKey === null)) {
       activeToastRef.current = null;
       toastManager.close(active.toastId);
     }
-    if (!notificationKey || seenNotificationKeys.has(notificationKey)) return;
+    if (!notificationKey || isGated || seenNotificationKeys.has(notificationKey)) return;
 
-    const view = resetCreditExpiryWarningView(warnings, (driver) => getDriverOption(driver)?.label);
-    if (view === null) return;
+    const timer = window.setTimeout(() => {
+      const view = resetCreditExpiryWarningView(
+        warnings,
+        (driver) => getDriverOption(driver)?.label,
+      );
+      if (view === null || seenNotificationKeys.has(notificationKey)) return;
 
-    let toastId!: ExpiryToastId;
-    const openLimits = () => {
-      toastManager.close(toastId);
-      void navigate({ to: "/usage", search: { metric: "limits" } });
-    };
-    toastId = toastManager.add(
-      stackedThreadToast({
-        type: "warning",
-        title: view.title,
-        description: view.description,
-        timeout: 0,
-        actionProps: { children: "View limits", onClick: openLimits },
-        actionVariant: "outline",
-        data: {
-          hideCopyButton: true,
-          onClose: () => {
-            if (activeToastRef.current?.toastId === toastId) {
-              activeToastRef.current = null;
-            }
+      let toastId!: ExpiryToastId;
+      const openLimits = () => {
+        toastManager.close(toastId);
+        void navigate({ to: "/usage", search: { metric: "limits" } });
+      };
+      toastId = toastManager.add(
+        stackedThreadToast({
+          type: "warning",
+          title: view.title,
+          description: view.description,
+          timeout: 0,
+          actionProps: { children: "View limits", onClick: openLimits },
+          actionVariant: "outline",
+          data: {
+            hideCopyButton: true,
+            onClose: () => {
+              if (activeToastRef.current?.toastId === toastId) {
+                activeToastRef.current = null;
+              }
+            },
           },
-        },
-      }),
-    );
-    seenNotificationKeys.add(notificationKey);
-    activeToastRef.current = { key: notificationKey, toastId };
-  }, [navigate, notificationKey, warnings]);
+        }),
+      );
+      seenNotificationKeys.add(notificationKey);
+      activeToastRef.current = { key: notificationKey, toastId };
+    }, RESET_CREDIT_REMINDER_STABILIZE_MS);
+    return () => window.clearTimeout(timer);
+  }, [isGated, navigate, notificationKey, warnings]);
 
   return null;
 }
