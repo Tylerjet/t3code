@@ -61,7 +61,7 @@ export function UsagePage({
   initialMetric,
   onMetricChange,
 }: {
-  readonly initialMetric?: "limits";
+  readonly initialMetric?: UsageMetric;
   readonly onMetricChange?: (metric: UsageMetric) => void;
 } = {}) {
   const [windowSelection, setWindowSelection] = useState(() => ({

@@ -24,7 +24,11 @@ export function ResetCreditExpiryAlert() {
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") setNow(Date.now());
     });
-    return () => subscription.remove();
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => {
+      subscription.remove();
+      clearInterval(timer);
+    };
   }, []);
 
   const warnings = useMemo(
