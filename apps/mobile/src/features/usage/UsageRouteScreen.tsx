@@ -15,7 +15,7 @@ import {
   formatUsd,
   makeWindow,
 } from "@t3tools/shared/usageFormat";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Platform, Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -111,17 +111,9 @@ export function UsageRouteScreen({ route }: StaticScreenProps<UsageRouteParams |
   // environment stays pending forever — neither may pin the spinner on.
   const refreshingUsage = environments.some((entry) => entry.isPending && entry.summary !== null);
   const showingLimits = tab === "limits";
-  // One ScrollView serves both tabs, so the offset would otherwise carry over
-  // and a short Limits list could open scrolled past its own content.
-  const scrollRef = useRef<ScrollView>(null);
-  useEffect(() => {
-    if (routeSection !== "limits") return;
-    scrollRef.current?.scrollTo({ y: 0, animated: false });
-  }, [routeSection]);
   const selectTab = (next: UsageTab) => {
     if (next === tab) return;
     navigation.setParams({ section: next === "limits" ? "limits" : undefined });
-    scrollRef.current?.scrollTo({ y: 0, animated: false });
   };
   const selectWindow = (days: number) => {
     setWindowSelection({
@@ -152,7 +144,9 @@ export function UsageRouteScreen({ route }: StaticScreenProps<UsageRouteParams |
         </>
       ) : null}
       <ScrollView
-        ref={scrollRef}
+        // Remount at each tab's native top. Scrolling to y: 0 ignores iOS's
+        // automatic header inset and hides the tab bar under the header.
+        key={tab}
         contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
         className="flex-1"

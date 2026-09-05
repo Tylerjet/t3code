@@ -6,6 +6,7 @@ import { ForwardCompatibleNullable, TrimmedNonEmptyString, TrimmedString } from 
 import { UsageLimitSourceId } from "./usageLimitSourceId.ts";
 import { EnvironmentMachineKind, ThreadEnvMode } from "./environment.ts";
 import {
+  CustomModelSetting,
   DEFAULT_TEXT_GENERATION_MODEL,
   DEFAULT_TEXT_GENERATION_REASONING_EFFORT,
   ProviderOptionSelections,
@@ -285,6 +286,13 @@ export const ClientSettingsSchema = Schema.Struct({
   // Grayscale `-webkit-font-smoothing: antialiased` (thinner strokes);
   // disabling restores the platform's heavier default. No effect off macOS.
   fontSmoothing: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
+  // When the first-run welcome wizard finished (or was skipped), as an ISO
+  // timestamp. `null` alone does not mean "show the wizard" — every install
+  // that predates this field decodes to `null` — so the gate also requires an
+  // empty workspace before it treats the client as a fresh install.
+  onboardingCompletedAt: Schema.NullOr(Schema.String).pipe(
+    Schema.withDecodingDefault(Effect.succeed(null)),
+  ),
   // Model favorites. Historically keyed by provider kind, now
   // widened to `ProviderInstanceId` so users can favorite a specific model
   // on a custom provider instance (e.g. "Codex Personal · gpt-5") without
@@ -472,7 +480,7 @@ export const CodexSettings = makeProviderSettingsSchema(
         description: "Additional CLI arguments passed to codex app-server on session start.",
       }),
     ),
-    customModels: Schema.Array(Schema.String).pipe(
+    customModels: Schema.Array(CustomModelSetting).pipe(
       Schema.withDecodingDefault(Effect.succeed([])),
       Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
     ),
@@ -510,7 +518,7 @@ export const ClaudeSettings = makeProviderSettingsSchema(
         providerSettingsForm: { placeholder: "~/.claude", clearWhenEmpty: "omit" },
       }),
     ),
-    customModels: Schema.Array(Schema.String).pipe(
+    customModels: Schema.Array(CustomModelSetting).pipe(
       Schema.withDecodingDefault(Effect.succeed([])),
       Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
     ),
@@ -571,7 +579,7 @@ export const CursorSettings = makeProviderSettingsSchema(
         },
       }),
     ),
-    customModels: Schema.Array(Schema.String).pipe(
+    customModels: Schema.Array(CustomModelSetting).pipe(
       Schema.withDecodingDefault(Effect.succeed([])),
       Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
     ),
@@ -597,7 +605,7 @@ export const GrokSettings = makeProviderSettingsSchema(
         providerSettingsForm: { placeholder: "grok", clearWhenEmpty: "omit" },
       }),
     ),
-    customModels: Schema.Array(Schema.String).pipe(
+    customModels: Schema.Array(CustomModelSetting).pipe(
       Schema.withDecodingDefault(Effect.succeed([])),
       Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
     ),
@@ -682,7 +690,7 @@ export const AntigravitySettings = makeProviderSettingsSchema(
         providerSettingsForm: { placeholder: "Automatic", clearWhenEmpty: "persist" },
       }),
     ),
-    customModels: Schema.Array(Schema.String).pipe(
+    customModels: Schema.Array(CustomModelSetting).pipe(
       Schema.withDecodingDefault(Effect.succeed([])),
       Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
     ),
@@ -732,7 +740,7 @@ export const OpenCodeSettings = makeProviderSettingsSchema(
         },
       }),
     ),
-    customModels: Schema.Array(Schema.String).pipe(
+    customModels: Schema.Array(CustomModelSetting).pipe(
       Schema.withDecodingDefault(Effect.succeed([])),
       Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
     ),
@@ -974,7 +982,7 @@ export const providerInstanceConfigEnabledFlag = (config: unknown): boolean | un
  * through `DEFAULT_SERVER_SETTINGS`, so the schema's decoding default stays
  * the single source of truth. Unknown (fork) drivers default to enabled.
  */
-export const defaultEnabledForDriver = (driver: ProviderDriverKind): boolean => {
+const defaultEnabledForDriver = (driver: ProviderDriverKind): boolean => {
   const legacyDefaults = DEFAULT_SERVER_SETTINGS.providers as Record<
     string,
     { readonly enabled?: boolean } | undefined
@@ -1055,14 +1063,14 @@ const CodexSettingsPatch = Schema.Struct({
   homePath: Schema.optionalKey(TrimmedString),
   shadowHomePath: Schema.optionalKey(TrimmedString),
   launchArgs: Schema.optionalKey(TrimmedString),
-  customModels: Schema.optionalKey(Schema.Array(Schema.String)),
+  customModels: Schema.optionalKey(Schema.Array(CustomModelSetting)),
 });
 
 const ClaudeSettingsPatch = Schema.Struct({
   enabled: Schema.optionalKey(Schema.Boolean),
   binaryPath: Schema.optionalKey(TrimmedString),
   homePath: Schema.optionalKey(TrimmedString),
-  customModels: Schema.optionalKey(Schema.Array(Schema.String)),
+  customModels: Schema.optionalKey(Schema.Array(CustomModelSetting)),
   launchArgs: Schema.optionalKey(TrimmedString),
   // Validated at the patch boundary so a typo fails the one update with a
   // schema error instead of a generic whole-settings failure.
@@ -1075,13 +1083,13 @@ const CursorSettingsPatch = Schema.Struct({
   enabled: Schema.optionalKey(Schema.Boolean),
   binaryPath: Schema.optionalKey(TrimmedString),
   apiEndpoint: Schema.optionalKey(TrimmedString),
-  customModels: Schema.optionalKey(Schema.Array(Schema.String)),
+  customModels: Schema.optionalKey(Schema.Array(CustomModelSetting)),
 });
 
 const GrokSettingsPatch = Schema.Struct({
   enabled: Schema.optionalKey(Schema.Boolean),
   binaryPath: Schema.optionalKey(TrimmedString),
-  customModels: Schema.optionalKey(Schema.Array(Schema.String)),
+  customModels: Schema.optionalKey(Schema.Array(CustomModelSetting)),
 });
 
 const AntigravitySettingsPatch = Schema.Struct({
@@ -1091,7 +1099,7 @@ const AntigravitySettingsPatch = Schema.Struct({
   gcpProject: Schema.optionalKey(TrimmedString),
   gcpLocation: Schema.optionalKey(TrimmedString),
   binaryPath: Schema.optionalKey(TrimmedString),
-  customModels: Schema.optionalKey(Schema.Array(Schema.String)),
+  customModels: Schema.optionalKey(Schema.Array(CustomModelSetting)),
 });
 
 const OpenCodeSettingsPatch = Schema.Struct({
@@ -1099,7 +1107,7 @@ const OpenCodeSettingsPatch = Schema.Struct({
   binaryPath: Schema.optionalKey(TrimmedString),
   serverUrl: Schema.optionalKey(TrimmedString),
   serverPassword: Schema.optionalKey(TrimmedString),
-  customModels: Schema.optionalKey(Schema.Array(Schema.String)),
+  customModels: Schema.optionalKey(Schema.Array(CustomModelSetting)),
 });
 
 export const ServerSettingsPatch = Schema.Struct({
@@ -1187,6 +1195,7 @@ export const ClientSettingsPatch = Schema.Struct({
   diffLayout: Schema.optionalKey(DiffLayout),
   environmentIdentificationMode: Schema.optionalKey(EnvironmentIdentificationMode),
   glassOpacity: Schema.optionalKey(GlassOpacity),
+  onboardingCompletedAt: Schema.optionalKey(Schema.NullOr(Schema.String)),
   fontSizeInterface: Schema.optionalKey(InterfaceFontSize),
   fontSizePrompt: Schema.optionalKey(PromptFontSize),
   fontSizeCode: Schema.optionalKey(CodeFontSize),
